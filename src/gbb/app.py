@@ -12,7 +12,7 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Header, Input, Static
-from textual.worker import get_current_worker
+from textual.worker import Worker, get_current_worker
 
 from gbb.cleanup import delete_branch, delete_worktree, list_non_ignored_entries
 from gbb.config import Config, WorkspaceConfig
@@ -422,6 +422,7 @@ class GbbApp(App):
         self._footer_timer = None
         self._pins = load_pins()
         self._kitty_mode = is_kitty()
+        self.sub_title = "kitty" if self._kitty_mode else ""
         self._effective_cwd = cwd
         self._active_branch_key: str | None = None
         self._last_switch_path: Path | None = None
@@ -517,6 +518,14 @@ class GbbApp(App):
         self._footer_timer = self.set_timer(3, self._hide_footer)
         self._fetch_repos_background(valid_repos)
         table.focus()
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        if event.worker.error:
+            self.notify(
+                f"Error ({event.worker.group}): {event.worker.error}",
+                timeout=10,
+                severity="error",
+            )
 
     @work(thread=True, exclusive=True, group="discovery")
     def _discover_repos_background(self, repos: list[Path]) -> None:
