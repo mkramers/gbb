@@ -460,13 +460,17 @@ class GbbApp(App):
         prefix = f"{repo_name}:"
         return {key[len(prefix):] for key in self._pins if key.startswith(prefix)}
 
+    def _is_active_row(self, repo_name: str, branch: BranchInfo) -> bool:
+        key = f"{repo_name}:{branch.name}"
+        return self._active_branch_key == key or branch.is_current
+
     def _scoped_rows(self) -> list[tuple[str, Path, BranchInfo]]:
         if not self._show_all and self._current_repo:
             rows = [r for r in self._all_rows if r[0] == self._current_repo]
         else:
             rows = list(self._all_rows)
-        active = [r for r in rows if self._active_branch_key == f"{r[0]}:{r[2].name}"]
-        rest = [r for r in rows if self._active_branch_key != f"{r[0]}:{r[2].name}"]
+        active = [r for r in rows if self._is_active_row(r[0], r[2])]
+        rest = [r for r in rows if not self._is_active_row(r[0], r[2])]
         pinned = [r for r in rest if pin_key(r[0], r[2].name) in self._pins]
         unpinned = [r for r in rest if pin_key(r[0], r[2].name) not in self._pins]
         return active + pinned + unpinned
@@ -1179,6 +1183,11 @@ class GbbApp(App):
         repo_name = parts[0] if len(parts) > 0 else ""
         branch_name = parts[1] if len(parts) > 1 else ""
         wt_path = parts[2] if len(parts) > 2 else ""
+
+        # Skip if already on this branch
+        for rn, _, b in self._all_rows:
+            if rn == repo_name and b.name == branch_name and self._is_active_row(rn, b):
+                return
 
         has_worktree = bool(wt_path)
 
