@@ -1063,6 +1063,7 @@ class GbbApp(App):
         self.call_from_thread(
             self.notify, f"Pulled {branch.name}", timeout=3,
         )
+        self.call_from_thread(self._refresh_repos)
 
     def action_push_branch(self) -> None:
         data = self._get_cursor_row_data()
@@ -1095,6 +1096,7 @@ class GbbApp(App):
         self.call_from_thread(
             self.notify, f"Pushed {branch.name}", timeout=3,
         )
+        self.call_from_thread(self._refresh_repos)
 
     def action_toggle_pin(self) -> None:
         if self.filtering or self._pending_delete is not None:
