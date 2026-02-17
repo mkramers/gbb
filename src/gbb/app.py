@@ -309,7 +309,8 @@ class HelpScreen(ModalScreen[None]):
         ("enter", "Select branch"),
         ("/", "Filter branches"),
         ("a", "Toggle all repos / this repo"),
-        ("p", "Pin / unpin branch"),
+        ("x", "Pin / unpin branch"),
+        ("p", "Git pull"),
         ("c", "Create worktree"),
         ("d", "Diff against default branch"),
         ("D", "Diff local changes"),
@@ -317,6 +318,7 @@ class HelpScreen(ModalScreen[None]):
         ("o", "Open in editor"),
         ("T", "Open / switch to workspace tab"),
         ("ctrl+t", "New workspace tab"),
+        ("P", "Git push"),
         ("R", "Fetch all + refresh"),
         ("K", "Clear idle panes"),
         ("j/k", "Move cursor"),
@@ -359,11 +361,13 @@ class GbbApp(App):
         Binding("d", "diff_main", "Diff main", show=False),
         Binding("D", "diff_local", "Diff local", show=False),
         Binding("o", "open_root", "Open", show=False),
-        Binding("p", "toggle_pin", "Pin", show=False),
+        Binding("x", "toggle_pin", "Pin", show=False),
+        Binding("p", "pull_branch", "Pull", show=False),
         Binding("K", "clear_panes", "Clear", show=False),
         Binding("ctrl+t", "new_workspace", "New ws", show=False),
         Binding("c", "create_worktree", "Create wt", show=False),
         Binding("R", "fetch_refresh", "Refresh", show=False),
+        Binding("P", "push_branch", "Push", show=False),
     ]
 
     CSS = """
@@ -1032,6 +1036,64 @@ class GbbApp(App):
         self._run_in_pager(
             ["git", "-c", "color.diff=always", "diff"],
             cwd=branch.worktree.path,
+        )
+
+    def action_pull_branch(self) -> None:
+        data = self._get_cursor_row_data()
+        if not data:
+            return
+        repo_name, repo_path, branch = data
+        if not branch.worktree:
+            self.notify("No worktree — cannot pull", timeout=3)
+            return
+        self.notify(f"Pulling {branch.name}...", timeout=2)
+        self._do_pull(repo_name, repo_path, branch)
+
+    @work(thread=True, exclusive=True, group="pull")
+    def _do_pull(self, repo_name: str, repo_path: Path, branch: BranchInfo) -> None:
+        result = subprocess.run(
+            ["git", "-C", str(branch.worktree.path), "pull"],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            self.call_from_thread(
+                self.notify, f"Pull failed: {result.stderr.strip()}", timeout=5,
+            )
+            return
+        self.call_from_thread(
+            self.notify, f"Pulled {branch.name}", timeout=3,
+        )
+
+    def action_push_branch(self) -> None:
+        data = self._get_cursor_row_data()
+        if not data:
+            return
+        repo_name, repo_path, branch = data
+        if not branch.worktree:
+            self.notify("No worktree — cannot push", timeout=3)
+            return
+        self.notify(f"Pushing {branch.name}...", timeout=2)
+        self._do_push(repo_name, repo_path, branch)
+
+    @work(thread=True, exclusive=True, group="push")
+    def _do_push(self, repo_name: str, repo_path: Path, branch: BranchInfo) -> None:
+        result = subprocess.run(
+            ["git", "-C", str(branch.worktree.path), "push"],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            # Try push with --set-upstream for new branches
+            result = subprocess.run(
+                ["git", "-C", str(branch.worktree.path), "push", "--set-upstream", "origin", branch.name],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                self.call_from_thread(
+                    self.notify, f"Push failed: {result.stderr.strip()}", timeout=5,
+                )
+                return
+        self.call_from_thread(
+            self.notify, f"Pushed {branch.name}", timeout=3,
         )
 
     def action_toggle_pin(self) -> None:
