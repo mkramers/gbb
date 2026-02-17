@@ -992,7 +992,16 @@ class GbbApp(App):
 
     def _run_in_pager(self, cmd: list[str], cwd: Path) -> None:
         with self.suspend():
-            subprocess.run(cmd, cwd=str(cwd))
+            diff = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
+            if not diff.stdout.strip():
+                print("(no changes)")
+                input("Press enter to continue...")
+            else:
+                pager = subprocess.Popen(
+                    ["less", "-R"],
+                    stdin=subprocess.PIPE,
+                )
+                pager.communicate(input=diff.stdout.encode())
 
     def action_diff_main(self) -> None:
         data = self._get_cursor_row_data()
@@ -1003,9 +1012,8 @@ class GbbApp(App):
         if not main_branch:
             self.notify("No default branch found", timeout=3)
             return
-        cwd = branch.worktree.path if branch.worktree else repo_path
         self._run_in_pager(
-            ["git", "diff", f"{main_branch}...{branch.name}"],
+            ["git", "-c", "color.diff=always", "diff", f"{main_branch}...{branch.name}"],
             cwd=repo_path,
         )
 
@@ -1018,7 +1026,7 @@ class GbbApp(App):
             self.notify("No worktree — no local changes", timeout=3)
             return
         self._run_in_pager(
-            ["git", "diff"],
+            ["git", "-c", "color.diff=always", "diff"],
             cwd=branch.worktree.path,
         )
 
