@@ -29,7 +29,17 @@ class KittyError(Exception):
 
 
 def is_kitty() -> bool:
-    return "KITTY_WINDOW_ID" in os.environ and "KITTY_LISTEN_ON" in os.environ
+    """Check if running in kitty with a working remote control socket."""
+    if "KITTY_WINDOW_ID" not in os.environ or "KITTY_LISTEN_ON" not in os.environ:
+        return False
+    try:
+        result = subprocess.run(
+            _kitten_cmd("ls"),
+            capture_output=True, text=True, timeout=3,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 
 def self_window_id() -> int:
