@@ -1,4 +1,5 @@
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -31,6 +32,9 @@ from gbb.kitty import (
     switch_pane,
 )
 from gbb.pins import load_pins, pin_key, save_pins
+
+HAS_SUBL = shutil.which("subl") is not None
+HAS_SMERGE = shutil.which("smerge") is not None
 
 REPO_COLORS = [
     "#50fa7b",
@@ -316,7 +320,8 @@ class HelpScreen(ModalScreen[None]):
             ("enter", "Switch to branch"),
             ("c", "Create worktree"),
             ("x", "Pin / unpin branch"),
-            ("o", "Open in editor"),
+            *([("o", "Open in editor")] if HAS_SUBL else []),
+            *([("s", "Open in Sublime Merge")] if HAS_SMERGE else []),
             ("ctrl+d", "Delete branch"),
         ]),
         ("Git", [
@@ -370,7 +375,8 @@ class GbbApp(App):
         Binding("ctrl+d", "delete_branch", "Delete", show=False),
         Binding("d", "diff_main", "Diff main", show=False),
         Binding("D", "diff_local", "Diff local", show=False),
-        Binding("o", "open_root", "Open", show=False),
+        *([ Binding("o", "open_editor", "Open", show=False)] if HAS_SUBL else []),
+        *([Binding("s", "open_smerge", "Merge", show=False)] if HAS_SMERGE else []),
         Binding("x", "toggle_pin", "Pin", show=False),
         Binding("p", "pull_branch", "Pull", show=False),
         Binding("K", "clear_panes", "Clear", show=False),
@@ -996,17 +1002,23 @@ class GbbApp(App):
             self.notify, f"Workspace opened: {title}", timeout=3,
         )
 
-    def action_open_root(self) -> None:
+    def _open_external(self, cmd: str) -> None:
         data = self._get_cursor_row_data()
         if not data:
             return
         repo_name, repo_path, branch = data
         path = branch.worktree.path if branch.worktree else repo_path
         subprocess.Popen(
-            ["subl", str(path)],
+            [cmd, str(path)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+
+    def action_open_editor(self) -> None:
+        self._open_external("subl")
+
+    def action_open_smerge(self) -> None:
+        self._open_external("smerge")
 
     def _run_in_pager(self, cmd: list[str], cwd: Path) -> None:
         with self.suspend():
