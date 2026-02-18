@@ -305,31 +305,41 @@ class HelpScreen(ModalScreen[None]):
     }
     """
 
-    KEYS = [
-        ("enter", "Select branch"),
-        ("/", "Filter branches"),
-        ("a", "Toggle all repos / this repo"),
-        ("x", "Pin / unpin branch"),
-        ("p", "Git pull"),
-        ("c", "Create worktree"),
-        ("d", "Diff against default branch"),
-        ("D", "Diff local changes"),
-        ("ctrl+d", "Delete branch"),
-        ("o", "Open in editor"),
-        ("T", "Open / switch to workspace tab"),
-        ("ctrl+t", "New workspace tab"),
-        ("P", "Git push"),
-        ("R", "Fetch all + refresh"),
-        ("K", "Clear idle panes"),
-        ("j/k", "Move cursor"),
-        ("alt+↑/↓", "Jump to prev/next repo"),
-        ("q/esc", "Quit"),
+    SECTIONS = [
+        ("Navigation", [
+            ("j/k", "Move cursor"),
+            ("alt+↑/↓", "Jump to prev/next repo"),
+            ("/", "Filter branches"),
+            ("a", "Toggle all repos / this repo"),
+        ]),
+        ("Actions", [
+            ("enter", "Switch to branch"),
+            ("c", "Create worktree"),
+            ("x", "Pin / unpin branch"),
+            ("o", "Open in editor"),
+            ("ctrl+d", "Delete branch"),
+        ]),
+        ("Git", [
+            ("p", "Pull"),
+            ("P", "Push"),
+            ("d", "Diff vs default branch"),
+            ("D", "Diff local changes"),
+            ("R", "Fetch all + refresh"),
+        ]),
+        ("Workspace", [
+            ("T", "Open / focus workspace tab"),
+            ("ctrl+t", "New workspace tab"),
+            ("K", "Clear idle panes"),
+        ]),
     ]
 
     def compose(self) -> ComposeResult:
-        lines = ["[bold]Keybindings[/bold]", ""]
-        for key, desc in self.KEYS:
-            lines.append(f"  [bold]{key:<12}[/bold] {desc}")
+        lines = ["[bold]Keybindings[/bold]"]
+        for section, keys in self.SECTIONS:
+            lines.append("")
+            lines.append(f"  [dim]{section}[/dim]")
+            for key, desc in keys:
+                lines.append(f"    [bold]{key:<12}[/bold] {desc}")
         lines.append("")
         lines.append("[dim]press any key to close[/dim]")
         with Vertical(id="help-dialog"):
